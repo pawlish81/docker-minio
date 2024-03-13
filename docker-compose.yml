@@ -7,25 +7,34 @@ services:
       - 9000:9000
       - 9001:9001
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
 
   init-data-container:
     image: minio/mc
+    env_file:
+      - .env
     depends_on:
       - minio
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc config host add minio http://minio:9000 minio minio123;
-      /usr/bin/mc rm -r --force minio/user-data-bucket;
-      /usr/bin/mc mb minio/user-data-bucket;
-      /usr/bin/mc policy download minio/user-data-bucket;
-      /usr/bin/mc policy upload minio/user-data-bucket;
-      exit 0;
+      /usr/bin/mc config host add minio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb minio/customers;
+      /usr/bin/mc cp /mnt/data/customers.csv minio/customers/customers.csv;
+      
+      /usr/bin/mc mb minio/organizations;
+      /usr/bin/mc cp /mnt/data/organizations.csv minio/organizations/organizations.csv;
+
+      /usr/bin/mc mb minio/people;
+      /usr/bin/mc cp /mnt/data/people.csv minio/people/people.csv;
+      
+       exit 0;
       "
+    volumes:
+      - ./data:/mnt/data
